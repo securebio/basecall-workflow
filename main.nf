@@ -38,20 +38,25 @@ workflow {
         }
     }
 
-    // Barcodes
-    barcodes_ch = file(params.barcodes).readLines().collect()
-
     // Basecalling
     if (params.duplex) {
         bam_ch = BASECALL_POD_5_DUPLEX(pod5_ch, params.kit, params.nanopore_run)
         final_bam_ch = bam_ch.bam.flatten()
     } else {
-        bam_ch = BASECALL_POD_5_SIMPLEX(pod5_ch, params.kit, params.nanopore_run)
+        if (params.notrim) {
+            bam_ch = BASECALL_POD_5_NOTRIM(pod5_ch, params.nanopore_run)
+        } else {
+            bam_ch = BASECALL_POD_5_SIMPLEX(pod5_ch, params.kit, params.nanopore_run)
+        }
         if (params.demux) {
+            barcodes_ch = file(params.barcodes).readLines().collect()
             demux_ch = DEMUX_POD_5(bam_ch.bam, params.kit, params.nanopore_run, barcodes_ch)
             classified_bam_ch = demux_ch.demux_bam.flatten()
             unclassified_bam_ch = MERGE_BAMS(demux_ch.unclassified_bam.collect(), params.nanopore_run)
             final_bam_ch = classified_bam_ch.mix(unclassified_bam_ch)
+        }
+        else {
+            final_bam_ch = bam_ch.bam.map { bam, _division -> bam}.flatten()
         }
     }
 
@@ -65,7 +70,7 @@ workflow {
 
 output {
      fastq_ch {
-        path "raw"
+        path "raw_trimmed"
         tags nextflow_file_class: "publish", "nextflow.io/temporary": "false"
     }
 }

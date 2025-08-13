@@ -9,7 +9,7 @@ process BASECALL_POD_5_SIMPLEX {
         tuple path(pod5), val(division)
         val kit
         val nanopore_run
-
+        
     output:
         tuple path("*.bam"), val(division), emit: bam
         tuple path("sequencing_summary_*.txt"), val(division), emit: summary
@@ -24,6 +24,33 @@ process BASECALL_POD_5_SIMPLEX {
         dorado summary ${nanopore_run}-!{division}.bam > sequencing_summary_${nanopore_run}-!{division}.txt
         '''
 }
+
+// Option with no trimming -- can be useful for R&D
+process BASECALL_POD_5_NOTRIM {
+    label "dorado"
+    label "basecall"
+    accelerator 1
+    memory '16 GB'
+
+    input:
+        tuple path(pod5), val(division)
+        val nanopore_run
+        
+    output:
+        tuple path("*.bam"), val(division), emit: bam
+        tuple path("sequencing_summary_*.txt"), val(division), emit: summary
+
+    shell:
+        '''
+        nanopore_run=!{nanopore_run}
+
+        # Dorado basecalling
+        dorado basecaller sup !{pod5} --no-trim > ${nanopore_run}-!{division}.bam
+
+        dorado summary ${nanopore_run}-!{division}.bam > sequencing_summary_${nanopore_run}-!{division}.txt
+        '''
+}
+
 
 process BASECALL_POD_5_DUPLEX {
     label "dorado"
