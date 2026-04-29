@@ -4,6 +4,7 @@
 
 import groovy.json.JsonOutput
 import java.time.LocalDateTime
+import java.util.regex.Pattern
 
 /***************************
 | MODULES AND SUBWORKFLOWS |
@@ -52,10 +53,12 @@ workflow {
 
             // Group classified BAMs by barcode.
             // Filename pattern from DEMUX_POD_5: "${nanopore_run}-${barcode}-divNNNN.bam"
+            // Pattern.quote shields against any regex metachars in the run name.
+            run_prefix_re = "^${Pattern.quote(params.nanopore_run + '-')}"
             classified_grouped_ch = demux_ch.demux_bam.flatten()
                 .map { bam ->
                     def barcode = bam.baseName
-                        .replaceFirst(/^${params.nanopore_run}-/, '')
+                        .replaceFirst(run_prefix_re, '')
                         .replaceFirst(/-div\d{4}$/, '')
                     tuple("${params.nanopore_run}-${barcode}_SE", bam)
                 }
