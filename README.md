@@ -21,6 +21,8 @@ When `demux = true`, the directory contains one FASTQ per barcode listed in `bar
 - `${nanopore_run}-${barcode}_SE.fastq.gz` (e.g., `${nanopore_run}-01_SE.fastq.gz`)
 - `${nanopore_run}-unclassified_SE.fastq.gz` (also includes reads that dorado tagged with a barcode not in `barcodes.txt`)
 
+The `_SE` suffix denotes single-end reads, distinguishing these files from the `_R1` / `_R2` suffix convention used for paired-end reads.
+
 ## Using the Workflow
 
 ### Installation & Setup
