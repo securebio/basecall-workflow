@@ -49,9 +49,22 @@ workflow {
         bam_ch = BASECALL_POD_5_SIMPLEX(pod5_ch, params.kit, params.nanopore_run)
         if (params.demux) {
             demux_ch = DEMUX_POD_5(bam_ch.bam, params.kit, params.nanopore_run, barcodes_ch)
-            classified_bam_ch = demux_ch.demux_bam.flatten()
-            unclassified_bam_ch = MERGE_BAMS(demux_ch.unclassified_bam.collect(), params.nanopore_run)
-            final_bam_ch = classified_bam_ch.mix(unclassified_bam_ch)
+
+            // Group classified BAMs by barcode.
+            // Filename pattern from DEMUX_POD_5: "${nanopore_run}-${barcode}-divNNNN.bam"
+            classified_grouped_ch = demux_ch.demux_bam.flatten()
+                .map { bam ->
+                    def barcode = bam.baseName
+                        .replaceFirst(/^${params.nanopore_run}-/, '')
+                        .replaceFirst(/-div\d{4}$/, '')
+                    tuple("${params.nanopore_run}-${barcode}_SE", bam)
+                }
+                .groupTuple()
+
+            unclassified_grouped_ch = demux_ch.unclassified_bam.collect()
+                .map { files -> tuple("${params.nanopore_run}-unclassified", files) }
+
+            final_bam_ch = MERGE_BAMS(classified_grouped_ch.mix(unclassified_grouped_ch))
         }
     }
 

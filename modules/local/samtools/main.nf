@@ -21,12 +21,11 @@ process MERGE_BAMS {
     label "samtools"
 
     input:
-        path(bam_files)
-        val nanopore_run
+        tuple val(out_name), path(bam_files)
     output:
-        path("${nanopore_run}-unclassified.bam")
+        path("${out_name}.bam")
     shell:
         '''
-        samtools merge -r -o !{nanopore_run}-unclassified.bam !{bam_files}
+        samtools merge -r -o !{out_name}.bam !{bam_files}
         '''
 }
