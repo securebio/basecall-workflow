@@ -14,10 +14,12 @@ The pipeline consists of a single workflow that processes Nanopore POD5 files th
 
 ### Pipeline Outputs
 
-The workflow produces the following outputs:
+All output FASTQs are published to a single `raw/` directory.
 
-1. `raw/`: Directory containing the final FASTQ files
-2. `unclassified/`: Directory containing unclassified FASTQ files (only relevant for demultiplexing)
+When `demux = true`, the directory contains one FASTQ per barcode listed in `barcodes.txt`, plus one for unclassified reads:
+
+- `${nanopore_run}-${barcode}_SE.fastq.gz` (e.g., `${nanopore_run}-01_SE.fastq.gz`)
+- `${nanopore_run}-unclassified_SE.fastq.gz` (also includes reads that dorado tagged with a barcode not in `barcodes.txt`)
 
 ## Using the Workflow
 
