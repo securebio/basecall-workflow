@@ -62,7 +62,7 @@ workflow {
                 .groupTuple()
 
             unclassified_grouped_ch = demux_ch.unclassified_bam.collect()
-                .map { files -> tuple("${params.nanopore_run}-unclassified", files) }
+                .map { files -> tuple("${params.nanopore_run}-unclassified_SE", files) }
 
             final_bam_ch = MERGE_BAMS(classified_grouped_ch.mix(unclassified_grouped_ch))
         }
