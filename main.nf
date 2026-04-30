@@ -4,7 +4,6 @@
 
 import groovy.json.JsonOutput
 import java.time.LocalDateTime
-import java.util.regex.Pattern
 
 /***************************
 | MODULES AND SUBWORKFLOWS |
@@ -51,23 +50,13 @@ workflow {
         if (params.demux) {
             demux_ch = DEMUX_POD_5(bam_ch.bam, params.kit, params.nanopore_run, barcodes_ch)
 
-            // Group classified BAMs by barcode.
-            // Filename pattern from DEMUX_POD_5: "${nanopore_run}-${barcode}-divNNNN.bam"
-            // Pattern.quote shields against any regex metachars in the run name.
-            run_prefix_re = "^${Pattern.quote(params.nanopore_run + '-')}"
-            classified_grouped_ch = demux_ch.demux_bam.flatten()
-                .map { bam ->
-                    def barcode = bam.baseName
-                        .replaceFirst(run_prefix_re, '')
-                        .replaceFirst(/-div\d{4}$/, '')
-                    tuple("${params.nanopore_run}-${barcode}_SE", bam)
-                }
+            // DEMUX_POD_5 stages each BAM under `demux_out/${merge_key}/`,
+            // so the parent directory name is the merge key — no filename parsing.
+            merge_input_ch = demux_ch.demux_bam.flatten()
+                .map { bam -> tuple("${params.nanopore_run}-${bam.parent.name}_SE", bam) }
                 .groupTuple()
 
-            unclassified_grouped_ch = demux_ch.unclassified_bam.collect()
-                .map { files -> tuple("${params.nanopore_run}-unclassified_SE", files) }
-
-            final_bam_ch = MERGE_BAMS(classified_grouped_ch.mix(unclassified_grouped_ch))
+            final_bam_ch = MERGE_BAMS(merge_input_ch)
         }
     }
 

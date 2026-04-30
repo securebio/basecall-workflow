@@ -61,8 +61,10 @@ process DEMUX_POD_5 {
         val nanopore_run
         val valid_barcodes
     output:
-        path('demultiplexed/*'), emit: demux_bam, optional: true
-        path('unclassified/*'), emit: unclassified_bam, optional: true
+        // Parent directory is the merge key for downstream groupTuple:
+        // per-barcode dirs for valid barcodes, plus an `unclassified/` dir
+        // that absorbs both true-unclassified and faulty-barcode reads.
+        path('demux_out/*/*.bam'), emit: demux_bam, optional: true
 
     shell:
         '''
@@ -73,35 +75,38 @@ process DEMUX_POD_5 {
 
         # Turn the barcodes into a proper array by removing brackets and splitting on comma
         barcodes_array=($(echo "$barcodes" | tr -d '[]' | tr ',' ' '))
-        
-        # Create unclassified and demultiplexed dirs
-        mkdir -p unclassified
-        mkdir -p demultiplexed
+
+        mkdir -p tmp_demux
 
         # Demultiplex
-        dorado demux --no-classify --output-dir demultiplexed/ !{bam}
+        dorado demux --no-classify --output-dir tmp_demux/ !{bam}
 
-        # Rename output files
-        if [ "$(ls -A demultiplexed/)" ]; then
-            for f in demultiplexed/*; do
-                # Extract demux_id from filename
+        if [ "$(ls -A tmp_demux/)" ]; then
+            for f in tmp_demux/*.bam; do
                 demux_id=$(basename "$f" .bam | awk -F '_' '{print $NF}')
                 demux_id=${demux_id#barcode}
 
-                # Check if demux_id is in valid_barcodes
                 if [[ " ${barcodes_array[@]} " =~ " ${demux_id} " ]]; then
                     echo "Processing file: $f with Demux ID: ${demux_id}"
-                    mv "$f" "demultiplexed/${nanopore_run}-${demux_id}-${division}.bam"
+                    merge_key="${demux_id}"
+                    new_name="${nanopore_run}-${demux_id}-${division}.bam"
                 elif [[ "$f" == *"unclassified"* ]]; then
                     echo "Processing unclassified file: $f"
-                    mv "$f" "unclassified/${nanopore_run}-unclassified-${division}.bam"
+                    merge_key="unclassified"
+                    new_name="${nanopore_run}-unclassified-${division}.bam"
                 else
                     echo "Processing wrong barcode: $f"
-                    mv "$f" "unclassified/${nanopore_run}-faulty-barcode-${demux_id}-${division}.bam"
+                    merge_key="unclassified"
+                    new_name="${nanopore_run}-faulty-barcode-${demux_id}-${division}.bam"
                 fi
+
+                mkdir -p "demux_out/${merge_key}"
+                mv "$f" "demux_out/${merge_key}/${new_name}"
             done
         else
-            echo "No files to process in demultiplexed/"
+            echo "No files to process in tmp_demux/"
         fi
+
+        rmdir tmp_demux 2>/dev/null || true
         '''
 }
