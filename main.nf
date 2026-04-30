@@ -2,9 +2,6 @@
 | WORKFLOW: BASECALLING NANOPORE SQUIGGLE DATA |
 ***********************************************************************************************/
 
-import groovy.json.JsonOutput
-import java.time.LocalDateTime
-
 /***************************
 | MODULES AND SUBWORKFLOWS |
 ***************************/
@@ -61,7 +58,7 @@ workflow {
     }
 
     // Convert to FASTQ
-    fastq_ch = BAM_TO_FASTQ(final_bam_ch, params.nanopore_run)
+    fastq_ch = BAM_TO_FASTQ(final_bam_ch)
 
     publish:
         fastq_ch = fastq_ch
