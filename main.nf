@@ -40,12 +40,12 @@ workflow {
 
     // Basecalling
     if (params.duplex) {
-        bam_ch = BASECALL_POD_5_DUPLEX(pod5_ch, params.kit, params.nanopore_run)
+        bam_ch = BASECALL_POD_5_DUPLEX(pod5_ch, params.nanopore_run)
         final_bam_ch = bam_ch.bam.flatten()
     } else {
         bam_ch = BASECALL_POD_5_SIMPLEX(pod5_ch, params.kit, params.nanopore_run)
         if (params.demux) {
-            demux_ch = DEMUX_POD_5(bam_ch.bam, params.kit, params.nanopore_run, barcodes_ch)
+            demux_ch = DEMUX_POD_5(bam_ch.bam, params.nanopore_run, barcodes_ch)
 
             // Each BAM's parent directory name is its merge key, set by DEMUX_POD_5.
             merge_input_ch = demux_ch.demux_bam.flatten()

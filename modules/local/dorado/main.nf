@@ -31,7 +31,6 @@ process BASECALL_POD_5_DUPLEX {
 
     input:
         tuple path(pod5), val(division)
-        val kit
         val nanopore_run
 
     output:
@@ -57,7 +56,6 @@ process DEMUX_POD_5 {
 
     input:
         tuple path(bam), val(division)
-        val kit
         val nanopore_run
         val valid_barcodes
     output:
