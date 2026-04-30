@@ -47,8 +47,7 @@ workflow {
         if (params.demux) {
             demux_ch = DEMUX_POD_5(bam_ch.bam, params.kit, params.nanopore_run, barcodes_ch)
 
-            // DEMUX_POD_5 stages each BAM under `demux_out/${merge_key}/`,
-            // so the parent directory name is the merge key — no filename parsing.
+            // Each BAM's parent directory name is its merge key, set by DEMUX_POD_5.
             merge_input_ch = demux_ch.demux_bam.flatten()
                 .map { bam -> tuple("${params.nanopore_run}-${bam.parent.name}_SE", bam) }
                 .groupTuple()
