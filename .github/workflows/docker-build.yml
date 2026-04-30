@@ -1,0 +1,36 @@
+name: Docker Build
+
+on:
+  pull_request:
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t basecall-workflow-test .
+
+      - name: Smoke test - nextflow available
+        run: >
+          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
+          basecall-workflow-test nextflow -version
+
+      - name: Smoke test - workflow files baked in
+        run: >
+          docker run --rm --entrypoint bash basecall-workflow-test
+          -c "test -f /workflow/main.nf && test -d /workflow/modules && test -d /workflow/configs && echo OK"
+
+      - name: Smoke test - awscli available
+        run: >
+          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
+          basecall-workflow-test aws --version
+
+      - name: Smoke test - main.nf parses
+        run: >
+          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
+          basecall-workflow-test bash -c "cd /tmp && nextflow config /workflow/main.nf > /dev/null"
