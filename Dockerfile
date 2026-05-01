@@ -8,9 +8,9 @@ RUN micromamba install -y -n base -f /tmp/environment.yml && \
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
 ARG SEQ_IMPORT_SHA=e6ad6266cb1410c595bd93cbb8597cacbb0044e5
-# uid=1000 matches mambauser, the default user in the mambaorg/micromamba image;
-# without it the secret mounts as root-owned 0400 and the RUN cannot read it.
-RUN --mount=type=secret,id=gh_token,uid=1000 \
+# mode=0444 makes the secret readable by mambauser; the default 0400 + root
+# owner is unreadable to the image's non-root build user.
+RUN --mount=type=secret,id=gh_token,mode=0444 \
     pip install "git+https://x-access-token:$(cat /run/secrets/gh_token)@github.com/securebio/nao-mgs-import.git@${SEQ_IMPORT_SHA}#egg=seq_import"
 RUN python -c "import seq_import"
 
