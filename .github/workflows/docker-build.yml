@@ -21,6 +21,23 @@ jobs:
           owner: securebio
           repositories: nao-mgs-import
 
+      - name: Debug — verify token can read nao-mgs-import (REMOVE)
+        env:
+          GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
+        run: |
+          echo "Token length: ${#GH_APP_TOKEN}"
+          http_code=$(curl -s -o /tmp/api_resp -w "%{http_code}" \
+            -H "Authorization: token $GH_APP_TOKEN" \
+            https://api.github.com/repos/securebio/nao-mgs-import)
+          echo "HTTP $http_code"
+          head -c 400 /tmp/api_resp; echo
+          echo "---"
+          contents_code=$(curl -s -o /tmp/contents_resp -w "%{http_code}" \
+            -H "Authorization: token $GH_APP_TOKEN" \
+            https://api.github.com/repos/securebio/nao-mgs-import/contents/README.md)
+          echo "contents/README.md → HTTP $contents_code"
+          head -c 200 /tmp/contents_resp; echo
+
       - name: Build Docker image
         env:
           GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
