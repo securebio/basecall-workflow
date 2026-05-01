@@ -61,3 +61,22 @@ Once that is done, you can switch into the directory and run
 ```bash
 nextflow run .. -resume
 ```
+
+## Automation
+
+The `automation/` directory contains the head container that wraps this workflow for automated execution as part of the ONT basecalling automation pipeline in [`det-terraform-production`](https://github.com/securebio/det-terraform-production). The container bundles Nextflow, the workflow source, and `seq_import` (the upload helper from [`nao-mgs-import`](https://github.com/securebio/nao-mgs-import)).
+
+- `automation/Dockerfile` — head container image
+- `automation/environment.yml` — micromamba env spec (Python, Nextflow, AWS CLI, git)
+- `.github/workflows/ecr-push.yml` — publishes the image to ECR on push to `main`
+- `.github/workflows/docker-build.yml` — PR-time build smoke test
+
+### Build-time authentication
+
+Because the image pip-installs `seq_import` from the private `nao-mgs-import` repo, the build needs a GitHub token. CI mints a short-lived one via the `sbd-mgs-import-reader` GitHub App (App ID in `vars.IMPORT_READER_APP_ID`, private key in `secrets.IMPORT_READER_PRIVATE_KEY`) and passes it to `docker build` as a BuildKit secret, so it never lands in image layers. To build locally, supply any token with read access to `nao-mgs-import`:
+
+```bash
+GH_TOKEN=$(gh auth token) docker build \
+  --secret id=gh_token,env=GH_TOKEN \
+  -f automation/Dockerfile -t basecall-workflow .
+```

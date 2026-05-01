@@ -1,0 +1,65 @@
+name: Build and Push to ECR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::058264081542:role/GitHubActionsBasecallWorkflowDeployRole
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Mint mgs-import read token
+        id: mgs_import_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.IMPORT_READER_APP_ID }}
+          private-key: ${{ secrets.IMPORT_READER_PRIVATE_KEY }}
+          owner: securebio
+          repositories: nao-mgs-import
+
+      - name: Build, tag, and push image
+        env:
+          ECR_REGISTRY: 058264081542.dkr.ecr.us-east-1.amazonaws.com
+          ECR_REPOSITORY: det/basecall-workflow
+          IMAGE_TAG: ${{ github.sha }}
+          GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
+        run: |
+          docker build \
+            -f automation/Dockerfile \
+            --secret id=gh_token,env=GH_APP_TOKEN \
+            --build-arg BASECALL_WORKFLOW_COMMIT=$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+          echo "## Deploy Ready" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image pushed: \`$IMAGE_TAG\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To deploy, run (only valid once PR 4 of the basecalling automation plan lands):" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "cd ~/det-terraform-production/lambda/startOntBasecall" >> $GITHUB_STEP_SUMMARY
+          echo "terraform plan -var=\"container_image_tag=$IMAGE_TAG\"" >> $GITHUB_STEP_SUMMARY
+          echo "terraform apply -var=\"container_image_tag=$IMAGE_TAG\"" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

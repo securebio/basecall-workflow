@@ -1,0 +1,46 @@
+name: Docker Build
+
+on:
+  pull_request:
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mint mgs-import read token
+        id: mgs_import_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.IMPORT_READER_APP_ID }}
+          private-key: ${{ secrets.IMPORT_READER_PRIVATE_KEY }}
+          owner: securebio
+          repositories: nao-mgs-import
+
+      - name: Build Docker image
+        env:
+          GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
+        run: |
+          docker build \
+            -f automation/Dockerfile \
+            --secret id=gh_token,env=GH_APP_TOKEN \
+            -t basecall-workflow-test .
+
+      - name: Smoke test - workflow parses
+        run: >
+          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh basecall-workflow-test
+          bash -c "cd /tmp && nextflow config /workflow/main.nf > /dev/null && test -d /workflow/configs"
+
+      - name: Smoke test - awscli available
+        run: >
+          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
+          basecall-workflow-test aws --version
+
+      - name: Smoke test - seq_import entry point
+        run: >
+          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
+          basecall-workflow-test python -m seq_import --help
