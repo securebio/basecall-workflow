@@ -30,22 +30,17 @@ jobs:
             --secret id=gh_token,env=GH_APP_TOKEN \
             -t basecall-workflow-test .
 
-      - name: Smoke test - nextflow available
+      - name: Smoke test - workflow parses
         run: >
-          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
-          basecall-workflow-test nextflow -version
-
-      - name: Smoke test - workflow files baked in
-        run: >
-          docker run --rm --entrypoint bash basecall-workflow-test
-          -c "test -f /workflow/main.nf && test -d /workflow/modules && test -d /workflow/configs && echo OK"
+          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh basecall-workflow-test
+          bash -c "cd /tmp && nextflow config /workflow/main.nf > /dev/null && test -d /workflow/configs"
 
       - name: Smoke test - awscli available
         run: >
           docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
           basecall-workflow-test aws --version
 
-      - name: Smoke test - main.nf parses
+      - name: Smoke test - seq_import entry point
         run: >
           docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
-          basecall-workflow-test bash -c "cd /tmp && nextflow config /workflow/main.nf > /dev/null"
+          basecall-workflow-test python -m seq_import --help
