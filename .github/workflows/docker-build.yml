@@ -12,8 +12,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Mint mgs-import read token
+        id: mgs_import_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.IMPORT_READER_APP_ID }}
+          private-key: ${{ secrets.IMPORT_READER_PRIVATE_KEY }}
+          owner: securebio
+          repositories: nao-mgs-import
+
       - name: Build Docker image
-        run: docker build -t basecall-workflow-test .
+        env:
+          GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
+        run: |
+          docker build \
+            --secret id=gh_token,env=GH_APP_TOKEN \
+            -t basecall-workflow-test .
 
       - name: Smoke test - nextflow available
         run: >

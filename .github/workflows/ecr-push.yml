@@ -46,7 +46,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
           GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
         run: |
-          DOCKER_BUILDKIT=1 docker build \
+          docker build \
             --secret id=gh_token,env=GH_APP_TOKEN \
             --build-arg BASECALL_WORKFLOW_COMMIT=$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
