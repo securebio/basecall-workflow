@@ -47,6 +47,7 @@ jobs:
           GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
         run: |
           docker build \
+            -f automation/Dockerfile \
             --secret id=gh_token,env=GH_APP_TOKEN \
             --build-arg BASECALL_WORKFLOW_COMMIT=$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .

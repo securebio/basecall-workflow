@@ -26,6 +26,7 @@ jobs:
           GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
         run: |
           docker build \
+            -f automation/Dockerfile \
             --secret id=gh_token,env=GH_APP_TOKEN \
             -t basecall-workflow-test .
 
