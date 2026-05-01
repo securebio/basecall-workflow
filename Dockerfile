@@ -9,6 +9,8 @@ ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
 ARG SEQ_IMPORT_SHA=e6ad6266cb1410c595bd93cbb8597cacbb0044e5
 RUN --mount=type=secret,id=gh_token \
+    bytes=$(wc -c < /run/secrets/gh_token) && \
+    echo "DEBUG: secret bytes=$bytes prefix=$(head -c 4 /run/secrets/gh_token)" && \
     pip install "git+https://x-access-token:$(cat /run/secrets/gh_token)@github.com/securebio/nao-mgs-import.git@${SEQ_IMPORT_SHA}#egg=seq_import"
 RUN python -c "import seq_import"
 
