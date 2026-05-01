@@ -76,5 +76,3 @@ GH_TOKEN=$(gh auth token) docker build \
   --secret id=gh_token,env=GH_TOKEN \
   -f automation/Dockerfile -t basecall-workflow .
 ```
-
-See [`SCOPING_seq_import_auth.md`](SCOPING_seq_import_auth.md) for the rationale behind picking the GitHub App over a PAT or deploy key.
