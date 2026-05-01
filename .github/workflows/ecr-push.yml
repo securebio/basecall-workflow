@@ -30,13 +30,26 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Mint mgs-import read token
+        id: mgs_import_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.IMPORT_READER_APP_ID }}
+          private-key: ${{ secrets.IMPORT_READER_PRIVATE_KEY }}
+          owner: securebio
+          repositories: nao-mgs-import
+
       - name: Build, tag, and push image
         env:
           ECR_REGISTRY: 058264081542.dkr.ecr.us-east-1.amazonaws.com
           ECR_REPOSITORY: det/basecall-workflow
           IMAGE_TAG: ${{ github.sha }}
+          GH_APP_TOKEN: ${{ steps.mgs_import_token.outputs.token }}
         run: |
-          docker build --build-arg BASECALL_WORKFLOW_COMMIT=$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          DOCKER_BUILDKIT=1 docker build \
+            --secret id=gh_token,env=GH_APP_TOKEN \
+            --build-arg BASECALL_WORKFLOW_COMMIT=$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
           echo "## Deploy Ready" >> $GITHUB_STEP_SUMMARY

@@ -124,4 +124,13 @@ version, and runtime clone would let a single image float across
 
 ## Recommendation
 
-_Leave blank — to be filled in after team discussion._
+Chose **Option 3 — GitHub App**. The org-level identity, short-lived
+(~1h) tokens, and centralized revocation outweigh the upfront setup cost,
+and the pattern scales as more services need to read more private deps
+(notably the in-flight ONT basecalling automation will add at least one
+more consumer). Operational notes: the app is `sbd-mgs-import-reader`,
+installed on `securebio/nao-mgs-import` with `Contents: Read`. The numeric
+App ID lives in repo-level Actions variable `IMPORT_READER_APP_ID` and the
+private key in repo-level Actions secret `IMPORT_READER_PRIVATE_KEY`.
+Mirrors the `vars.COC_READER_APP_ID` / `secrets.COC_READER_PRIVATE_KEY`
+pattern used in `securebio/det-read-search-tools`.
