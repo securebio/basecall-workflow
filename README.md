@@ -73,7 +73,7 @@ The `automation/` directory contains the head container that wraps this workflow
 
 ### Container entrypoint
 
-The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, runs `python -m seq_import samplesheet --delivery <delivery>` to write the samplesheet to `s3://<base-bucket>/<delivery>/metadata/samplesheet.csv`.
+The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, runs `python -m seq_import samplesheet --delivery <delivery> --bucket <base-bucket>` to write the samplesheet to `s3://<base-bucket>/<delivery>/metadata/samplesheet.csv`.
 
 Required arguments (passed by the `startOntBasecall` Lambda via Batch `containerOverrides.command`):
 

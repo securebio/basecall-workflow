@@ -44,4 +44,6 @@ jobs:
         run: |
           output=$(docker run --rm basecall-workflow-test 2>&1 || true)
           echo "$output"
-          echo "$output" | grep -q -- --delivery
+          for flag in --delivery --kit --aws-queue --base-bucket --work-bucket; do
+            echo "$output" | grep -q -- "$flag" || { echo "Missing required flag in error output: $flag"; exit 1; }
+          done

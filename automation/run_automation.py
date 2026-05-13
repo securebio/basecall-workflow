@@ -9,7 +9,8 @@ The wrapper:
 1. Parses required CLI args supplied by the Lambda via Batch
    ``containerOverrides.command``.
 2. Runs ``nextflow run main.nf -profile batch`` against the GPU queue.
-3. On success, runs ``python -m seq_import samplesheet --delivery <delivery>``
+3. On success, runs
+   ``python -m seq_import samplesheet --delivery <delivery> --bucket <base-bucket>``
    to write the samplesheet for downstream ``mgs-workflow`` ingestion.
 
 Both subprocesses use ``check=True``; any failure propagates a non-zero exit,
@@ -19,9 +20,6 @@ which surfaces as a ``FAILED`` job in Batch with the traceback in CloudWatch.
 import argparse
 import logging
 import subprocess
-
-DUPLEX = "false"
-DEMUX = "true"
 
 log = logging.getLogger(__name__)
 
@@ -65,8 +63,9 @@ def build_nextflow_cmd(
     """Build the argv for ``nextflow run main.nf``.
 
     Supplies every param left commented-out in ``configs/basecall.config`` as a
-    ``--<param>`` flag. ``-profile batch`` engages the AWS Batch executor +
-    Fusion FS settings in ``configs/profiles.config``.
+    ``--<param>`` flag. ``duplex`` and ``demux`` are left to their config
+    defaults (``false`` / ``true``). ``-profile batch`` engages the AWS Batch
+    executor + Fusion FS settings in ``configs/profiles.config``.
     """
     return [
         "nextflow", "run", "/workflow/main.nf",
@@ -77,19 +76,21 @@ def build_nextflow_cmd(
         "--base_dir", f"s3://{base_bucket}/{delivery}",
         "--work_dir", f"s3://{work_bucket}/{delivery}",
         "--barcodes", f"s3://{base_bucket}/{delivery}/supplemental/barcodes.tsv",
-        "--duplex", DUPLEX,
-        "--demux", DEMUX,
     ]
 
 
-def build_samplesheet_cmd(delivery: str) -> list[str]:
+def build_samplesheet_cmd(delivery: str, base_bucket: str) -> list[str]:
     """Build the argv for the ``seq_import samplesheet`` CLI.
 
-    ``seq_import`` defaults to ``--bucket nao-restricted``, which matches our
-    ``--base-bucket``, so we don't pass ``--bucket`` explicitly — let
-    seq_import own that contract.
+    Forwards ``--base-bucket`` as ``seq_import``'s ``--bucket`` so the
+    samplesheet lands in the same bucket the workflow wrote ``raw/`` into,
+    regardless of seq_import's default.
     """
-    return ["python", "-m", "seq_import", "samplesheet", "--delivery", delivery]
+    return [
+        "python", "-m", "seq_import", "samplesheet",
+        "--delivery", delivery,
+        "--bucket", base_bucket,
+    ]
 
 
 def main() -> None:
@@ -109,7 +110,7 @@ def main() -> None:
     log.info("Running nextflow: %s", " ".join(nextflow_cmd))
     subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
 
-    samplesheet_cmd = build_samplesheet_cmd(args.delivery)
+    samplesheet_cmd = build_samplesheet_cmd(args.delivery, args.base_bucket)
     log.info("Generating samplesheet: %s", " ".join(samplesheet_cmd))
     subprocess.run(samplesheet_cmd, check=True)
 
