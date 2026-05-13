@@ -45,12 +45,3 @@ jobs:
           output=$(docker run --rm basecall-workflow-test 2>&1 || true)
           echo "$output"
           echo "$output" | grep -q -- --delivery
-
-      - name: Smoke test - entrypoint rejects bad --delivery
-        run: |
-          ! docker run --rm basecall-workflow-test \
-            --delivery ../etc \
-            --kit SQK-RPB114-24 \
-            --aws-queue q \
-            --base-bucket nao-restricted \
-            --work-bucket sb-det-ont-basecall-work

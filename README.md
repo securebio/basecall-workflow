@@ -77,7 +77,7 @@ The image runs `python -m automation.run_automation`, which invokes `nextflow ru
 
 Required arguments (passed by the `startOntBasecall` Lambda via Batch `containerOverrides.command`):
 
-- `--delivery` — delivery name, e.g. `NAO-ONT-YYYYMMDD-LIBRARY` (must match `[A-Za-z0-9_-]+`)
+- `--delivery` — delivery name, e.g. `NAO-ONT-YYYYMMDD-LIBRARY`
 - `--kit` — ONT kit name, e.g. `SQK-RPB114-24`
 - `--aws-queue` — AWS Batch GPU queue for child basecalling jobs
 - `--base-bucket` — S3 bucket holding the delivery (`raw/`, `supplemental/`, `metadata/`)

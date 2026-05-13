@@ -8,10 +8,8 @@ The wrapper:
 
 1. Parses required CLI args supplied by the Lambda via Batch
    ``containerOverrides.command``.
-2. Validates ``--delivery`` against a conservative regex (defense in depth —
-   the Lambda also validates).
-3. Runs ``nextflow run main.nf -profile batch`` against the GPU queue.
-4. On success, runs ``python -m seq_import samplesheet --delivery <delivery>``
+2. Runs ``nextflow run main.nf -profile batch`` against the GPU queue.
+3. On success, runs ``python -m seq_import samplesheet --delivery <delivery>``
    to write the samplesheet for downstream ``mgs-workflow`` ingestion.
 
 Both subprocesses use ``check=True``; any failure propagates a non-zero exit,
@@ -20,24 +18,12 @@ which surfaces as a ``FAILED`` job in Batch with the traceback in CloudWatch.
 
 import argparse
 import logging
-import re
 import subprocess
 
 DUPLEX = "false"
 DEMUX = "true"
 
-DELIVERY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
-
 log = logging.getLogger(__name__)
-
-
-def delivery_type(value: str) -> str:
-    """argparse type validator for ``--delivery``."""
-    if not DELIVERY_RE.match(value):
-        raise argparse.ArgumentTypeError(
-            f"{value!r} does not match {DELIVERY_RE.pattern}"
-        )
-    return value
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -47,8 +33,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Run basecall-workflow on a delivery, then emit its samplesheet.",
     )
     parser.add_argument(
-        "--delivery", type=delivery_type, required=True,
-        help="Delivery name, e.g. NAO-ONT-YYYYMMDD-LIBRARY (must match [A-Za-z0-9_-]+)",
+        "--delivery", required=True,
+        help="Delivery name, e.g. NAO-ONT-YYYYMMDD-LIBRARY",
     )
     parser.add_argument(
         "--kit", required=True,
