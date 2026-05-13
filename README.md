@@ -73,26 +73,25 @@ The `automation/` directory contains the head container that wraps this workflow
 
 ### Container entrypoint
 
-The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, runs `python -m seq_import samplesheet --delivery $DELIVERY` to write the samplesheet to `s3://$BASE_BUCKET/$DELIVERY/metadata/samplesheet.csv`.
+The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, runs `python -m seq_import samplesheet --delivery <delivery>` to write the samplesheet to `s3://<base-bucket>/<delivery>/metadata/samplesheet.csv`.
 
-Required environment variables (passed by the `startOntBasecall` Lambda via Batch `containerOverrides`):
+Required arguments (passed by the `startOntBasecall` Lambda via Batch `containerOverrides.command`):
 
-- `DELIVERY` — delivery name, e.g. `NAO-ONT-YYYYMMDD-LIBRARY` (must match `[A-Za-z0-9_-]+`)
-- `KIT` — ONT kit name, e.g. `SQK-RPB114-24`
-- `AWS_QUEUE` — AWS Batch GPU queue for child basecalling jobs
-- `BASE_BUCKET` — S3 bucket holding the delivery (`raw/`, `supplemental/`, `metadata/`)
-- `WORK_BUCKET` — S3 bucket for Nextflow's working directory
+- `--delivery` — delivery name, e.g. `NAO-ONT-YYYYMMDD-LIBRARY` (must match `[A-Za-z0-9_-]+`)
+- `--kit` — ONT kit name, e.g. `SQK-RPB114-24`
+- `--aws-queue` — AWS Batch GPU queue for child basecalling jobs
+- `--base-bucket` — S3 bucket holding the delivery (`raw/`, `supplemental/`, `metadata/`)
+- `--work-bucket` — S3 bucket for Nextflow's working directory
 
 Local smoke test:
 
 ```bash
-docker run --rm \
-  -e DELIVERY=NAO-ONT-YYYYMMDD-LIBRARY \
-  -e KIT=SQK-RPB114-24 \
-  -e AWS_QUEUE=<gpu-queue> \
-  -e BASE_BUCKET=nao-restricted \
-  -e WORK_BUCKET=sb-det-ont-basecall-work \
-  basecall-workflow
+docker run --rm basecall-workflow \
+  --delivery NAO-ONT-YYYYMMDD-LIBRARY \
+  --kit SQK-RPB114-24 \
+  --aws-queue <gpu-queue> \
+  --base-bucket nao-restricted \
+  --work-bucket sb-det-ont-basecall-work
 ```
 
 ### Build-time authentication

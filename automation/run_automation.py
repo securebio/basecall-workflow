@@ -6,19 +6,20 @@ job that the ``startOntBasecall`` Lambda submits when a
 
 The wrapper:
 
-1. Reads required env vars set by the Lambda via Batch ``containerOverrides``.
-2. Validates ``DELIVERY`` against a conservative regex (defense in depth — the
-   Lambda also validates).
+1. Parses required CLI args supplied by the Lambda via Batch
+   ``containerOverrides.command``.
+2. Validates ``--delivery`` against a conservative regex (defense in depth —
+   the Lambda also validates).
 3. Runs ``nextflow run main.nf -profile batch`` against the GPU queue.
-4. On success, runs ``python -m seq_import samplesheet --delivery $DELIVERY``
+4. On success, runs ``python -m seq_import samplesheet --delivery <delivery>``
    to write the samplesheet for downstream ``mgs-workflow`` ingestion.
 
 Both subprocesses use ``check=True``; any failure propagates a non-zero exit,
 which surfaces as a ``FAILED`` job in Batch with the traceback in CloudWatch.
 """
 
+import argparse
 import logging
-import os
 import re
 import subprocess
 
@@ -27,30 +28,45 @@ DEMUX = "true"
 
 DELIVERY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
-REQUIRED_ENV_VARS = (
-    "DELIVERY",
-    "KIT",
-    "AWS_QUEUE",
-    "BASE_BUCKET",
-    "WORK_BUCKET",
-)
-
 log = logging.getLogger(__name__)
 
 
-def load_env() -> dict[str, str]:
-    """Read and validate required env vars; exit non-zero if any are missing or invalid."""
-    missing = [v for v in REQUIRED_ENV_VARS if not os.environ.get(v)]
-    if missing:
-        raise SystemExit(
-            f"Missing required environment variable(s): {', '.join(missing)}"
+def delivery_type(value: str) -> str:
+    """argparse type validator for ``--delivery``."""
+    if not DELIVERY_RE.match(value):
+        raise argparse.ArgumentTypeError(
+            f"{value!r} does not match {DELIVERY_RE.pattern}"
         )
-    delivery = os.environ["DELIVERY"]
-    if not DELIVERY_RE.match(delivery):
-        raise SystemExit(
-            f"DELIVERY {delivery!r} does not match {DELIVERY_RE.pattern}"
-        )
-    return {v: os.environ[v] for v in REQUIRED_ENV_VARS}
+    return value
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the entrypoint's CLI args."""
+    parser = argparse.ArgumentParser(
+        prog="python -m automation.run_automation",
+        description="Run basecall-workflow on a delivery, then emit its samplesheet.",
+    )
+    parser.add_argument(
+        "--delivery", type=delivery_type, required=True,
+        help="Delivery name, e.g. NAO-ONT-YYYYMMDD-LIBRARY (must match [A-Za-z0-9_-]+)",
+    )
+    parser.add_argument(
+        "--kit", required=True,
+        help="ONT kit name, e.g. SQK-RPB114-24",
+    )
+    parser.add_argument(
+        "--aws-queue", required=True,
+        help="AWS Batch GPU queue for child basecalling jobs",
+    )
+    parser.add_argument(
+        "--base-bucket", required=True,
+        help="S3 bucket holding the delivery (raw/, supplemental/, metadata/)",
+    )
+    parser.add_argument(
+        "--work-bucket", required=True,
+        help="S3 bucket for Nextflow's working directory",
+    )
+    return parser.parse_args(argv)
 
 
 def build_nextflow_cmd(
@@ -84,8 +100,8 @@ def build_samplesheet_cmd(delivery: str) -> list[str]:
     """Build the argv for the ``seq_import samplesheet`` CLI.
 
     ``seq_import`` defaults to ``--bucket nao-restricted``, which matches our
-    ``BASE_BUCKET``, so we don't pass ``--bucket`` explicitly — let seq_import
-    own that contract.
+    ``--base-bucket``, so we don't pass ``--bucket`` explicitly — let
+    seq_import own that contract.
     """
     return ["python", "-m", "seq_import", "samplesheet", "--delivery", delivery]
 
@@ -95,19 +111,19 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
     )
-    env = load_env()
+    args = parse_args()
 
     nextflow_cmd = build_nextflow_cmd(
-        env["DELIVERY"],
-        env["KIT"],
-        env["AWS_QUEUE"],
-        env["BASE_BUCKET"],
-        env["WORK_BUCKET"],
+        args.delivery,
+        args.kit,
+        args.aws_queue,
+        args.base_bucket,
+        args.work_bucket,
     )
     log.info("Running nextflow: %s", " ".join(nextflow_cmd))
     subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
 
-    samplesheet_cmd = build_samplesheet_cmd(env["DELIVERY"])
+    samplesheet_cmd = build_samplesheet_cmd(args.delivery)
     log.info("Generating samplesheet: %s", " ".join(samplesheet_cmd))
     subprocess.run(samplesheet_cmd, check=True)
 

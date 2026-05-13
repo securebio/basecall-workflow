@@ -40,15 +40,17 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
           basecall-workflow-test python -m seq_import --help
 
-      - name: Smoke test - entrypoint validates required env vars
+      - name: Smoke test - entrypoint validates required args
         run: |
           output=$(docker run --rm basecall-workflow-test 2>&1 || true)
           echo "$output"
-          echo "$output" | grep -q DELIVERY
+          echo "$output" | grep -q -- --delivery
 
-      - name: Smoke test - entrypoint rejects bad DELIVERY
+      - name: Smoke test - entrypoint rejects bad --delivery
         run: |
-          ! docker run --rm \
-            -e DELIVERY='../etc' -e KIT=SQK-RPB114-24 -e AWS_QUEUE=q \
-            -e BASE_BUCKET=nao-restricted -e WORK_BUCKET=sb-det-ont-basecall-work \
-            basecall-workflow-test
+          ! docker run --rm basecall-workflow-test \
+            --delivery ../etc \
+            --kit SQK-RPB114-24 \
+            --aws-queue q \
+            --base-bucket nao-restricted \
+            --work-bucket sb-det-ont-basecall-work
