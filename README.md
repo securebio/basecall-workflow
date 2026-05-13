@@ -83,17 +83,6 @@ Required arguments (passed by the `startOntBasecall` Lambda via Batch `container
 - `--base-bucket` — S3 bucket holding the delivery (`raw/`, `supplemental/`, `metadata/`)
 - `--work-bucket` — S3 bucket for Nextflow's working directory
 
-Local smoke test:
-
-```bash
-docker run --rm basecall-workflow \
-  --delivery NAO-ONT-YYYYMMDD-LIBRARY \
-  --kit SQK-RPB114-24 \
-  --aws-queue <gpu-queue> \
-  --base-bucket nao-restricted \
-  --work-bucket sb-det-ont-basecall-work
-```
-
 ### Build-time authentication
 
 Because the image pip-installs `seq_import` from the private `nao-mgs-import` repo, the build needs a GitHub token. CI mints a short-lived one via the `sbd-mgs-import-reader` GitHub App (App ID in `vars.IMPORT_READER_APP_ID`, private key in `secrets.IMPORT_READER_PRIVATE_KEY`) and passes it to `docker build` as a BuildKit secret, so it never lands in image layers. To build locally, supply any token with read access to `nao-mgs-import`:
