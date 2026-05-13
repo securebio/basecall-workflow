@@ -11,7 +11,6 @@ include { BASECALL_POD_5_DUPLEX } from "./modules/local/dorado"
 include { DEMUX_POD_5 } from "./modules/local/dorado"
 include { BAM_TO_FASTQ } from "./modules/local/samtools"
 include { MERGE_BAMS } from "./modules/local/samtools"
-nextflow.preview.output = true
 
 /*****************
 | MAIN WORKFLOWS |

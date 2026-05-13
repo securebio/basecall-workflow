@@ -27,7 +27,7 @@ The `_SE` suffix denotes single-end reads, distinguishing these files from the `
 
 ### Installation & Setup
 
-1. Install Nextflow (23.04.0+)
+1. Install Nextflow (25.10+)
 2. Install Docker
 3. Set up [AWS BATCH](https://github.com/naobservatory/mgs-workflow/tree/master#:~:text=The%20batch%20profile%20is,your%20Batch%20job%20queue.)
 4. Clone this repository
