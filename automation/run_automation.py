@@ -1,15 +1,26 @@
 """Head-container entrypoint for the ONT basecalling automation.
 
-Invoked as `python -m automation.run_automation` by the Fargate Batch head job
-that the `startOntBasecall` Lambda submits when `supplemental/barcodes.tsv` is
-uploaded to a delivery prefix.
+Invoked as ``python -m automation.run_automation`` by the Fargate Batch head
+job that the ``startOntBasecall`` Lambda submits when a
+``supplemental/barcodes.tsv`` is uploaded to a delivery prefix.
+
+The wrapper:
+
+1. Reads required env vars set by the Lambda via Batch ``containerOverrides``.
+2. Validates ``DELIVERY`` against a conservative regex (defense in depth — the
+   Lambda also validates).
+3. Runs ``nextflow run main.nf -profile batch`` against the GPU queue.
+4. On success, runs ``python -m seq_import samplesheet --delivery $DELIVERY``
+   to write the samplesheet for downstream ``mgs-workflow`` ingestion.
+
+Both subprocesses use ``check=True``; any failure propagates a non-zero exit,
+which surfaces as a ``FAILED`` job in Batch with the traceback in CloudWatch.
 """
 
 import logging
 import os
 import re
 import subprocess
-import sys
 
 DUPLEX = "false"
 DEMUX = "true"
@@ -27,7 +38,8 @@ REQUIRED_ENV_VARS = (
 log = logging.getLogger(__name__)
 
 
-def load_env():
+def load_env() -> dict[str, str]:
+    """Read and validate required env vars; exit non-zero if any are missing or invalid."""
     missing = [v for v in REQUIRED_ENV_VARS if not os.environ.get(v)]
     if missing:
         raise SystemExit(
@@ -41,7 +53,19 @@ def load_env():
     return {v: os.environ[v] for v in REQUIRED_ENV_VARS}
 
 
-def build_nextflow_cmd(delivery, kit, aws_queue, base_bucket, work_bucket):
+def build_nextflow_cmd(
+    delivery: str,
+    kit: str,
+    aws_queue: str,
+    base_bucket: str,
+    work_bucket: str,
+) -> list[str]:
+    """Build the argv for ``nextflow run main.nf``.
+
+    Supplies every param left commented-out in ``configs/basecall.config`` as a
+    ``--<param>`` flag. ``-profile batch`` engages the AWS Batch executor +
+    Fusion FS settings in ``configs/profiles.config``.
+    """
     return [
         "nextflow", "run", "/workflow/main.nf",
         "-profile", "batch",
@@ -56,11 +80,17 @@ def build_nextflow_cmd(delivery, kit, aws_queue, base_bucket, work_bucket):
     ]
 
 
-def build_samplesheet_cmd(delivery):
+def build_samplesheet_cmd(delivery: str) -> list[str]:
+    """Build the argv for the ``seq_import samplesheet`` CLI.
+
+    ``seq_import`` defaults to ``--bucket nao-restricted``, which matches our
+    ``BASE_BUCKET``, so we don't pass ``--bucket`` explicitly — let seq_import
+    own that contract.
+    """
     return ["python", "-m", "seq_import", "samplesheet", "--delivery", delivery]
 
 
-def main():
+def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
