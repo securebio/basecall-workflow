@@ -24,3 +24,6 @@ ARG BASECALL_WORKFLOW_COMMIT
 ENV BASECALL_WORKFLOW_COMMIT=$BASECALL_WORKFLOW_COMMIT
 
 USER mambauser
+
+COPY automation/__init__.py automation/run_automation.py /workflow/automation/
+ENTRYPOINT ["/usr/local/bin/_entrypoint.sh", "python", "-m", "automation.run_automation"]

@@ -71,6 +71,30 @@ The `automation/` directory contains the head container that wraps this workflow
 - `.github/workflows/ecr-push.yml` — publishes the image to ECR on push to `main`
 - `.github/workflows/docker-build.yml` — PR-time build smoke test
 
+### Container entrypoint
+
+The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, runs `python -m seq_import samplesheet --delivery $DELIVERY` to write the samplesheet to `s3://$BASE_BUCKET/$DELIVERY/metadata/samplesheet.csv`.
+
+Required environment variables (passed by the `startOntBasecall` Lambda via Batch `containerOverrides`):
+
+- `DELIVERY` — delivery name, e.g. `NAO-ONT-YYYYMMDD-LIBRARY` (must match `[A-Za-z0-9_-]+`)
+- `KIT` — ONT kit name, e.g. `SQK-RPB114-24`
+- `AWS_QUEUE` — AWS Batch GPU queue for child basecalling jobs
+- `BASE_BUCKET` — S3 bucket holding the delivery (`raw/`, `supplemental/`, `metadata/`)
+- `WORK_BUCKET` — S3 bucket for Nextflow's working directory
+
+Local smoke test:
+
+```bash
+docker run --rm \
+  -e DELIVERY=NAO-ONT-YYYYMMDD-LIBRARY \
+  -e KIT=SQK-RPB114-24 \
+  -e AWS_QUEUE=<gpu-queue> \
+  -e BASE_BUCKET=nao-restricted \
+  -e WORK_BUCKET=sb-det-ont-basecall-work \
+  basecall-workflow
+```
+
 ### Build-time authentication
 
 Because the image pip-installs `seq_import` from the private `nao-mgs-import` repo, the build needs a GitHub token. CI mints a short-lived one via the `sbd-mgs-import-reader` GitHub App (App ID in `vars.IMPORT_READER_APP_ID`, private key in `secrets.IMPORT_READER_PRIVATE_KEY`) and passes it to `docker build` as a BuildKit secret, so it never lands in image layers. To build locally, supply any token with read access to `nao-mgs-import`:
