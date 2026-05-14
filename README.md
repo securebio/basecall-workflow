@@ -36,7 +36,7 @@ The `_SE` suffix denotes single-end reads, distinguishing these files from the `
 
 Basic usage:
 
-Create a new directory, name it after the delivery, copy in basecall.config as nextflow.config, and set the parameters. Params:
+Create a new directory, name it after the delivery, copy in basecall.config as nextflow.config, and set the parameters. Parameters left commented-out in `basecall.config` (marked `// fill ... and uncomment`) are the ones the caller must supply — uncomment and fill those before running. The non-commented params (`duplex`, `demux`, `mode`) have defaults that work for most runs. Params:
 
 - duplex
   - Duplex basecalling or no? You can't combine duplex and demux
@@ -73,7 +73,7 @@ The `automation/` directory contains the head container that wraps this workflow
 
 ### Container entrypoint
 
-The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, runs `python -m seq_import samplesheet --delivery <delivery> --bucket <base-bucket>` to write the samplesheet to `s3://<base-bucket>/<delivery>/metadata/samplesheet.csv`.
+The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, calls `seq_import.samplesheet.generate_samplesheet` in-process to write the samplesheet to `s3://<base-bucket>/<delivery>/metadata/samplesheet.csv`.
 
 Required arguments (passed by the `startOntBasecall` Lambda via Batch `containerOverrides.command`):
 

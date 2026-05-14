@@ -9,17 +9,21 @@ The wrapper:
 1. Parses required CLI args supplied by the Lambda via Batch
    ``containerOverrides.command``.
 2. Runs ``nextflow run main.nf -profile batch`` against the GPU queue.
-3. On success, runs
-   ``python -m seq_import samplesheet --delivery <delivery> --bucket <base-bucket>``
+3. On success, calls ``seq_import.samplesheet.generate_samplesheet`` in-process
    to write the samplesheet for downstream ``mgs-workflow`` ingestion.
 
-Both subprocesses use ``check=True``; any failure propagates a non-zero exit,
-which surfaces as a ``FAILED`` job in Batch with the traceback in CloudWatch.
+Nextflow runs with ``check=True``; any failure (subprocess or in-process)
+propagates a non-zero exit, which surfaces as a ``FAILED`` job in Batch with
+the traceback in CloudWatch.
 """
 
 import argparse
 import logging
 import subprocess
+
+import boto3
+from botocore.config import Config
+from seq_import.samplesheet import generate_samplesheet
 
 log = logging.getLogger(__name__)
 
@@ -62,10 +66,11 @@ def build_nextflow_cmd(
 ) -> list[str]:
     """Build the argv for ``nextflow run main.nf``.
 
-    Supplies every param left commented-out in ``configs/basecall.config`` as a
-    ``--<param>`` flag. ``duplex`` and ``demux`` are left to their config
-    defaults (``false`` / ``true``). ``-profile batch`` engages the AWS Batch
-    executor + Fusion FS settings in ``configs/profiles.config``.
+    Supplies every param that ``configs/basecall.config`` leaves for the caller
+    to provide (the commented-out lines tagged ``// fill ... and uncomment``).
+    ``duplex`` and ``demux`` are left to their config defaults (``false`` /
+    ``true``). ``-profile batch`` engages the AWS Batch executor + Fusion FS
+    settings in ``configs/profiles.config``.
     """
     return [
         "nextflow", "run", "/workflow/main.nf",
@@ -76,20 +81,6 @@ def build_nextflow_cmd(
         "--base_dir", f"s3://{base_bucket}/{delivery}",
         "--work_dir", f"s3://{work_bucket}/{delivery}",
         "--barcodes", f"s3://{base_bucket}/{delivery}/supplemental/barcodes.tsv",
-    ]
-
-
-def build_samplesheet_cmd(delivery: str, base_bucket: str) -> list[str]:
-    """Build the argv for the ``seq_import samplesheet`` CLI.
-
-    Forwards ``--base-bucket`` as ``seq_import``'s ``--bucket`` so the
-    samplesheet lands in the same bucket the workflow wrote ``raw/`` into,
-    regardless of seq_import's default.
-    """
-    return [
-        "python", "-m", "seq_import", "samplesheet",
-        "--delivery", delivery,
-        "--bucket", base_bucket,
     ]
 
 
@@ -110,9 +101,10 @@ def main() -> None:
     log.info("Running nextflow: %s", " ".join(nextflow_cmd))
     subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
 
-    samplesheet_cmd = build_samplesheet_cmd(args.delivery, args.base_bucket)
-    log.info("Generating samplesheet: %s", " ".join(samplesheet_cmd))
-    subprocess.run(samplesheet_cmd, check=True)
+    log.info("Generating samplesheet for delivery %s in bucket %s", args.delivery, args.base_bucket)
+    s3_client = boto3.client("s3", config=Config(max_pool_connections=50))
+    output_path = generate_samplesheet(s3_client, args.delivery, bucket=args.base_bucket)
+    log.info("Samplesheet written to: %s", output_path)
 
 
 if __name__ == "__main__":

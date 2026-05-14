@@ -35,10 +35,11 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh basecall-workflow-test
           bash -c "cd /tmp && nextflow config /workflow/main.nf > /dev/null && test -d /workflow/configs"
 
-      - name: Smoke test - seq_import entry point
+      - name: Smoke test - seq_import samplesheet symbol
         run: >
           docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
-          basecall-workflow-test python -m seq_import --help
+          basecall-workflow-test python -c
+          "from seq_import.samplesheet import generate_samplesheet"
 
       - name: Smoke test - entrypoint validates required args
         run: |
