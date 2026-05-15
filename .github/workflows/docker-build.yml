@@ -35,12 +35,23 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh basecall-workflow-test
           bash -c "cd /tmp && nextflow config /workflow/main.nf > /dev/null && test -d /workflow/configs"
 
-      - name: Smoke test - awscli available
+      - name: Smoke test - seq_import samplesheet symbol
         run: >
           docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
-          basecall-workflow-test aws --version
+          basecall-workflow-test python -c
+          "from seq_import.samplesheet import generate_samplesheet"
 
-      - name: Smoke test - seq_import entry point
-        run: >
-          docker run --rm --entrypoint /usr/local/bin/_entrypoint.sh
-          basecall-workflow-test python -m seq_import --help
+      - name: Smoke test - entrypoint validates required args
+        run: |
+          set +e
+          output=$(docker run --rm basecall-workflow-test 2>&1)
+          exit_code=$?
+          set -e
+          echo "$output"
+          if [ "$exit_code" -ne 2 ]; then
+            echo "Expected argparse exit code 2 for missing required args; got $exit_code"
+            exit 1
+          fi
+          for flag in --delivery --kit --aws-queue --base-bucket --work-bucket; do
+            echo "$output" | grep -q -- "$flag" || { echo "Missing required flag in error output: $flag"; exit 1; }
+          done

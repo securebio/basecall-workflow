@@ -27,7 +27,7 @@ The `_SE` suffix denotes single-end reads, distinguishing these files from the `
 
 ### Installation & Setup
 
-1. Install Nextflow (23.04.0+)
+1. Install Nextflow (25.10+)
 2. Install Docker
 3. Set up [AWS BATCH](https://github.com/naobservatory/mgs-workflow/tree/master#:~:text=The%20batch%20profile%20is,your%20Batch%20job%20queue.)
 4. Clone this repository
@@ -36,7 +36,7 @@ The `_SE` suffix denotes single-end reads, distinguishing these files from the `
 
 Basic usage:
 
-Create a new directory, name it after the delivery, copy in basecall.config as nextflow.config, and set the parameters. Params:
+Create a new directory, name it after the delivery, copy in basecall.config as nextflow.config, and set the parameters. Parameters left commented-out in `basecall.config` (marked `// fill ... and uncomment`) are the ones the caller must supply — uncomment and fill those before running. The non-commented params (`duplex`, `demux`, `mode`) have defaults that work for most runs. Params:
 
 - duplex
   - Duplex basecalling or no? You can't combine duplex and demux
@@ -70,6 +70,18 @@ The `automation/` directory contains the head container that wraps this workflow
 - `automation/environment.yml` — micromamba env spec (Python, Nextflow, AWS CLI, git)
 - `.github/workflows/ecr-push.yml` — publishes the image to ECR on push to `main`
 - `.github/workflows/docker-build.yml` — PR-time build smoke test
+
+### Container entrypoint
+
+The image runs `python -m automation.run_automation`, which invokes `nextflow run main.nf` against the AWS Batch GPU queue and, on success, calls `seq_import.samplesheet.generate_samplesheet` in-process to write the samplesheet to `s3://<base-bucket>/<delivery>/metadata/samplesheet.csv`.
+
+Required arguments (passed by the `startOntBasecall` Lambda via Batch `containerOverrides.command`):
+
+- `--delivery` — delivery name, e.g. `NAO-ONT-YYYYMMDD-LIBRARY`
+- `--kit` — ONT kit name, e.g. `SQK-RPB114-24`
+- `--aws-queue` — AWS Batch GPU queue for child basecalling jobs
+- `--base-bucket` — S3 bucket holding the delivery (`raw/`, `supplemental/`, `metadata/`)
+- `--work-bucket` — S3 bucket for Nextflow's working directory
 
 ### Build-time authentication
 
