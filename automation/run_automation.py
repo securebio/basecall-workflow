@@ -25,7 +25,6 @@ from pathlib import Path
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError
 from seq_import.samplesheet import generate_samplesheet
 
 log = logging.getLogger(__name__)
@@ -97,11 +96,11 @@ def upload_nextflow_log(
 ) -> None:
     """Upload .nextflow.log to s3://{log_bucket}/basecall-workflow/automated/{delivery}/{ts}/.
 
-    If the upload fails, log the error and return normally rather than
-    raising. We call this from a finally block before generate_samplesheet,
-    so raising would block samplesheet generation on a successful Nextflow
-    run — worse than losing a log file. The error log surfaces the failure
-    in CloudWatch error metrics so a misconfigured IAM/bucket gets noticed.
+    Called from a finally block, so we swallow all exceptions: raising on a
+    successful Nextflow run would block samplesheet generation, and raising
+    on a failed Nextflow run would replace the original CalledProcessError
+    with an upload error. The error log surfaces the failure in CloudWatch
+    so a misconfigured IAM/bucket gets noticed.
     """
     if not log_path.exists():
         log.warning("No %s to upload", log_path)
@@ -111,8 +110,8 @@ def upload_nextflow_log(
     try:
         s3_client.upload_file(str(log_path), log_bucket, s3_key)
         log.info("Uploaded nextflow log to s3://%s/%s", log_bucket, s3_key)
-    except ClientError as e:
-        log.error("Failed to upload %s: %s", log_path, e)
+    except Exception as e:
+        log.exception("Failed to upload %s: %s", log_path, e)
 
 
 def main() -> None:
@@ -134,13 +133,7 @@ def main() -> None:
     try:
         subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
     finally:
-        # Outer guard so an unexpected upload exception can't replace an
-        # in-flight CalledProcessError from Nextflow. Mirrors the pattern in
-        # mgs-orchestrator's automation/run_automation.py.
-        try:
-            upload_nextflow_log(s3_client, args.delivery, args.log_bucket)
-        except Exception as e:
-            log.exception("Failed to upload .nextflow.log: %s", e)
+        upload_nextflow_log(s3_client, args.delivery, args.log_bucket)
 
     log.info("Generating samplesheet for delivery %s in bucket %s", args.delivery, args.base_bucket)
     output_path = generate_samplesheet(s3_client, args.delivery, bucket=args.base_bucket)
