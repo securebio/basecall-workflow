@@ -74,6 +74,7 @@ def build_nextflow_cmd(
     """
     return [
         "nextflow", "run", "/workflow/main.nf",
+        "-c", "/workflow/configs/basecall.config",
         "-profile", "batch",
         "--nanopore_run", delivery,
         "--kit", kit,
