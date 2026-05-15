@@ -18,11 +18,14 @@ the traceback in CloudWatch.
 """
 
 import argparse
+import datetime as dt
 import logging
 import subprocess
+from pathlib import Path
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 from seq_import.samplesheet import generate_samplesheet
 
 log = logging.getLogger(__name__)
@@ -53,6 +56,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--work-bucket", required=True,
         help="S3 bucket for Nextflow's working directory",
+    )
+    parser.add_argument(
+        "--log-bucket", required=True,
+        help="S3 bucket for publishing .nextflow.log after the run",
     )
     return parser.parse_args(argv)
 
@@ -85,6 +92,26 @@ def build_nextflow_cmd(
     ]
 
 
+def upload_nextflow_log(
+    s3_client, delivery: str, log_bucket: str, log_path: Path = Path("/workflow/.nextflow.log"),
+) -> None:
+    """Upload .nextflow.log to s3://{log_bucket}/basecall-workflow/automated/{delivery}/{ts}/.
+
+    Logged-and-swallowed on failure: a log upload problem should never mask
+    the real exit status of the Nextflow run.
+    """
+    if not log_path.exists():
+        log.warning("No %s to upload", log_path)
+        return
+    timestamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d_%H%M%S")
+    s3_key = f"basecall-workflow/automated/{delivery}/{timestamp}/.nextflow.log"
+    try:
+        s3_client.upload_file(str(log_path), log_bucket, s3_key)
+        log.info("Uploaded nextflow log to s3://%s/%s", log_bucket, s3_key)
+    except ClientError as e:
+        log.warning("Failed to upload %s: %s", log_path, e)
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -100,10 +127,13 @@ def main() -> None:
         args.work_bucket,
     )
     log.info("Running nextflow: %s", " ".join(nextflow_cmd))
-    subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
+    s3_client = boto3.client("s3", config=Config(max_pool_connections=50))
+    try:
+        subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
+    finally:
+        upload_nextflow_log(s3_client, args.delivery, args.log_bucket)
 
     log.info("Generating samplesheet for delivery %s in bucket %s", args.delivery, args.base_bucket)
-    s3_client = boto3.client("s3", config=Config(max_pool_connections=50))
     output_path = generate_samplesheet(s3_client, args.delivery, bucket=args.base_bucket)
     log.info("Samplesheet written to: %s", output_path)
 
