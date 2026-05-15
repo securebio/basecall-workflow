@@ -134,7 +134,13 @@ def main() -> None:
     try:
         subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
     finally:
-        upload_nextflow_log(s3_client, args.delivery, args.log_bucket)
+        # Outer guard so an unexpected upload exception can't replace an
+        # in-flight CalledProcessError from Nextflow. Mirrors the pattern in
+        # mgs-orchestrator's automation/run_automation.py.
+        try:
+            upload_nextflow_log(s3_client, args.delivery, args.log_bucket)
+        except Exception as e:
+            log.exception("Failed to upload .nextflow.log: %s", e)
 
     log.info("Generating samplesheet for delivery %s in bucket %s", args.delivery, args.base_bucket)
     output_path = generate_samplesheet(s3_client, args.delivery, bucket=args.base_bucket)

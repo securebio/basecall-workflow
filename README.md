@@ -82,6 +82,7 @@ Required arguments (passed by the `startOntBasecall` Lambda via Batch `container
 - `--aws-queue` — AWS Batch GPU queue for child basecalling jobs
 - `--base-bucket` — S3 bucket holding the delivery (`raw/`, `supplemental/`, `metadata/`)
 - `--work-bucket` — S3 bucket for Nextflow's working directory
+- `--log-bucket` — S3 bucket for publishing `.nextflow.log` after the run
 
 ### Build-time authentication
 
