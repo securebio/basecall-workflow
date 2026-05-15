@@ -97,8 +97,11 @@ def upload_nextflow_log(
 ) -> None:
     """Upload .nextflow.log to s3://{log_bucket}/basecall-workflow/automated/{delivery}/{ts}/.
 
-    Logged-and-swallowed on failure: a log upload problem should never mask
-    the real exit status of the Nextflow run.
+    If the upload fails, log the error and return normally rather than
+    raising. We call this from a finally block before generate_samplesheet,
+    so raising would block samplesheet generation on a successful Nextflow
+    run — worse than losing a log file. The error log surfaces the failure
+    in CloudWatch error metrics so a misconfigured IAM/bucket gets noticed.
     """
     if not log_path.exists():
         log.warning("No %s to upload", log_path)
@@ -109,7 +112,7 @@ def upload_nextflow_log(
         s3_client.upload_file(str(log_path), log_bucket, s3_key)
         log.info("Uploaded nextflow log to s3://%s/%s", log_bucket, s3_key)
     except ClientError as e:
-        log.warning("Failed to upload %s: %s", log_path, e)
+        log.error("Failed to upload %s: %s", log_path, e)
 
 
 def main() -> None:
