@@ -52,6 +52,6 @@ jobs:
             echo "Expected argparse exit code 2 for missing required args; got $exit_code"
             exit 1
           fi
-          for flag in --delivery --kit --aws-queue --base-bucket --work-bucket; do
+          for flag in --delivery --kit --aws-queue --base-bucket --work-bucket --log-bucket; do
             echo "$output" | grep -q -- "$flag" || { echo "Missing required flag in error output: $flag"; exit 1; }
           done
