@@ -96,11 +96,8 @@ def upload_nextflow_log(
 ) -> None:
     """Upload .nextflow.log to s3://{log_bucket}/basecall-workflow/automated/{delivery}/{ts}/.
 
-    Called from a finally block, so we swallow all exceptions: raising on a
-    successful Nextflow run would block samplesheet generation, and raising
-    on a failed Nextflow run would replace the original CalledProcessError
-    with an upload error. The error log surfaces the failure in CloudWatch
-    so a misconfigured IAM/bucket gets noticed.
+    Logs and swallows all upload errors so it is safe to call from a finally block.
+    The error log surfaces the failure in CloudWatch so a misconfigured IAM/bucket gets noticed.
     """
     if not log_path.exists():
         log.warning("No %s to upload", log_path)
@@ -133,6 +130,10 @@ def main() -> None:
     try:
         subprocess.run(nextflow_cmd, check=True, cwd="/workflow")
     finally:
+        # upload_nextflow_log is designed to log-and-swallow all exceptions.
+        # (Because an exception in this finally block would prevent 
+        # samplesheet generation on a successful Nextflow run, or mask CalledProcessError 
+        # from a failed one.)
         upload_nextflow_log(s3_client, args.delivery, args.log_bucket)
 
     log.info("Generating samplesheet for delivery %s in bucket %s", args.delivery, args.base_bucket)
